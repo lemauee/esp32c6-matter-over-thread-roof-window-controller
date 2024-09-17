@@ -16,6 +16,8 @@ https://docs.espressif.com/projects/esp-matter/en/latest/esp32c6/developing.html
 
 https://github.com/espressif/vscode-esp-idf-extension/blob/master/docs/tutorial/install.md
 
+https://github.com/espressif/vscode-esp-idf-extension/blob/master/docs/C_CPP_CONFIGURATION.md
+
 Build the [light example](https://github.com/espressif/esp-matter/blob/6a2654a/examples/light/README.md) as a first test. To build the thread version of it, use the `sdkconfig.defaults.c6_thread` by renaming it to `sdkconfig.defaults.esp32c6`. See the [API-Guides](https://docs.espressif.com/projects/esp-idf/en/v5.3.1/esp32c6/api-guides/build-system.html#target-dependent-sdkconfig-defaults) for further info. Flash it and commission the device to your thread network. Setup of a thread network using the Home Assistant ZBT-1 / Skyconnect can be found in the next section.
 
 ### Optional: Home assistant with ZBT-1 / Skyconnect open thread border router
