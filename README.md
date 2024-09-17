@@ -40,6 +40,12 @@ Scan the QR Code from the ESP Matter documentation to initiate. For Home Assista
 
 Enable the open thread web port in the open thread border router addon. Navigate to this webpage and click the topology sidebar entry.
 
-## Build
+## Build & Flash
 
-... will be added once this is more than an howto on bringing examples from ESP Matter library to life. For now refer to the ESP Matter guide linked above for build, flash an commission instructions.
+0. Source ESP IDF and ESP Matter: `cd esp-idf` `source ./export.sh` `cd esp-matter` `source ./export.sh`
+1. Switch to this repos root: `cd esp32c6-matter-over-thread-roof-window-controller`
+2. Set target: `idf.py set-target esp32c6`
+3. Build: `idf.py build`
+4. Plug in your board and erase flash: `idf.py erase_flash`
+5. Flash & monitor console: `idf.py flash monitor`
+
