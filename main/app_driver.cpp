@@ -24,15 +24,11 @@ extern uint16_t relay_0_endpoint_id;
 gpio_num_t RELAY = GPIO_NUM_10;
 
 /* Do any conversions/remapping for the actual value here */
-static esp_err_t app_driver_light_set_power(led_indicator_handle_t handle, esp_matter_attr_val_t *val)
+static esp_err_t app_driver_light_set_power(relay_handle_t handle, esp_matter_attr_val_t *val)
 {
     esp_err_t err = ESP_OK;
-    if (val->val.b) {
-        gpio_set_level(RELAY, 1);
-    } else {
-        gpio_set_level(RELAY, 0);
-    }
-    ESP_LOGI(TAG, "LED set power: %d", val->val.b);
+    relay_gpio_set_on_off(handle,val->val.b);
+    ESP_LOGI(TAG, "Relay set power: %d", val->val.b);
     return err;
 }
 
@@ -56,7 +52,7 @@ esp_err_t app_driver_attribute_update(app_driver_handle_t driver_handle, uint16_
 {
     esp_err_t err = ESP_OK;
     if (endpoint_id == relay_0_endpoint_id) {
-        led_indicator_handle_t handle = (led_indicator_handle_t)driver_handle;
+        relay_handle_t handle = (relay_handle_t)driver_handle;
         if (cluster_id == OnOff::Id) {
             if (attribute_id == OnOff::Attributes::OnOff::Id) {
                 err = app_driver_light_set_power(handle, val);
@@ -71,7 +67,7 @@ esp_err_t app_driver_relay_set_defaults(uint16_t endpoint_id)
     esp_err_t err = ESP_OK;
     void *priv_data = endpoint::get_priv_data(endpoint_id);
     // TODO: Initialize private endpoint data with gpio ID?
-    led_indicator_handle_t handle = (led_indicator_handle_t)priv_data;
+    relay_handle_t handle = (relay_handle_t)priv_data;
     esp_matter_attr_val_t val = esp_matter_invalid(NULL);
 
     /* Setting power */
@@ -84,18 +80,13 @@ esp_err_t app_driver_relay_set_defaults(uint16_t endpoint_id)
 
 app_driver_handle_t app_driver_relays_init()
 {
-#if CONFIG_BSP_LEDS_NUM > 0
-    /* Initialize led */
-    led_indicator_handle_t leds[CONFIG_BSP_LEDS_NUM];
-    ESP_ERROR_CHECK(bsp_led_indicator_create(leds, NULL, CONFIG_BSP_LEDS_NUM));
-
-    gpio_reset_pin(RELAY);
-	gpio_set_direction(RELAY, GPIO_MODE_INPUT_OUTPUT);
-    
-    return (app_driver_handle_t)leds[0];
-#else
-    return NULL;
-#endif
+    /* Initialize relay */
+    relay_handle_t relay{relay_create(RELAY)};
+    if (relay == NULL)
+    {
+        return NULL;
+    }
+    return (app_driver_handle_t)relay;
 }
 
 app_driver_handle_t app_driver_button_init()

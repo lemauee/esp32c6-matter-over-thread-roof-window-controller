@@ -10,6 +10,7 @@
 
 #include <esp_err.h>
 #include <esp_matter.h>
+#include <relay.h>
 
 #if CHIP_DEVICE_CONFIG_ENABLE_THREAD
 #include "esp_openthread_types.h"

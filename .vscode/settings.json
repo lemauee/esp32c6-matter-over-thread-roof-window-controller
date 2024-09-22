@@ -1,3 +1,7 @@
 {
-    "idf.adapterTargetName": "esp32c6"
+    "idf.adapterTargetName": "esp32c6",
+    "files.associations": {
+        "format": "cpp",
+        "freertos.h": "c"
+    }
 }
