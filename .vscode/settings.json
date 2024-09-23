@@ -2,6 +2,9 @@
     "idf.adapterTargetName": "esp32c6",
     "files.associations": {
         "format": "cpp",
-        "freertos.h": "c"
+        "freertos.h": "c",
+        "mutex": "cpp",
+        "stop_token": "cpp",
+        "thread": "cpp"
     }
 }

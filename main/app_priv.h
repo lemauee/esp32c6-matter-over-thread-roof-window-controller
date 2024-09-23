@@ -28,7 +28,7 @@ typedef void *app_driver_handle_t;
  * @return Handle on success.
  * @return NULL in case of failure.
  */
-app_driver_handle_t app_driver_relays_init();
+app_driver_handle_t app_driver_relay_init(const size_t i_gpio);
 
 /** Initialize the button driver
  *

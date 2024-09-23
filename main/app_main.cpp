@@ -26,6 +26,7 @@
 
 static const char *TAG = "app_main";
 uint16_t relay_0_endpoint_id = 0;
+uint16_t relay_1_endpoint_id = 0;
 
 using namespace esp_matter;
 using namespace esp_matter::attribute;
@@ -152,7 +153,8 @@ extern "C" void app_main()
     nvs_flash_init();
 
     /* Initialize driver */
-    app_driver_handle_t relays_handle = app_driver_relays_init();
+    app_driver_handle_t relay_0_handle = app_driver_relay_init(0);
+    app_driver_handle_t relay_1_handle = app_driver_relay_init(1);
     app_driver_handle_t button_handle = app_driver_button_init();
     app_reset_button_register(button_handle);
 
@@ -166,11 +168,19 @@ extern "C" void app_main()
     // endpoint handles can be used to add/modify clusters.
     on_off_plugin_unit::config_t relay_0_config{};
     relay_0_config.on_off.on_off = false;
-    endpoint_t *relay_0_endpoint = on_off_plugin_unit::create(node, &relay_0_config, ENDPOINT_FLAG_NONE, relays_handle);
-    ABORT_APP_ON_FAILURE(relay_0_endpoint != nullptr, ESP_LOGE(TAG, "Failed to create on off plugin unit endpoint"));
+    endpoint_t *relay_0_endpoint = on_off_plugin_unit::create(node, &relay_0_config, ENDPOINT_FLAG_NONE, relay_0_handle);
+    ABORT_APP_ON_FAILURE(relay_0_endpoint != nullptr, ESP_LOGE(TAG, "Failed to create on off plugin unit endpoint 0"));
 
     relay_0_endpoint_id = endpoint::get_id(relay_0_endpoint);
     ESP_LOGI(TAG, "Plugin unit created with endpoint_id %d", relay_0_endpoint_id);
+
+    on_off_plugin_unit::config_t relay_1_config{};
+    relay_1_config.on_off.on_off = false;
+    endpoint_t *relay_1_endpoint = on_off_plugin_unit::create(node, &relay_1_config, ENDPOINT_FLAG_NONE, relay_1_handle);
+    ABORT_APP_ON_FAILURE(relay_1_endpoint != nullptr, ESP_LOGE(TAG, "Failed to create on off plugin unit endpoint 1"));
+
+    relay_1_endpoint_id = endpoint::get_id(relay_1_endpoint);
+    ESP_LOGI(TAG, "Plugin unit created with endpoint_id %d", relay_1_endpoint_id);
 
 #if CHIP_DEVICE_CONFIG_ENABLE_THREAD
     /* Set OpenThread platform config */
@@ -188,6 +198,7 @@ extern "C" void app_main()
 
     /* Starting driver with default values */
     app_driver_relay_set_defaults(relay_0_endpoint_id);
+    app_driver_relay_set_defaults(relay_1_endpoint_id);
 
 #if CONFIG_ENABLE_ENCRYPTED_OTA
     err = esp_matter_ota_requestor_encrypted_init(s_decryption_key, s_decryption_key_len);

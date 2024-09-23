@@ -20,8 +20,11 @@ using namespace esp_matter;
 
 static const char *TAG = "app_driver";
 extern uint16_t relay_0_endpoint_id;
+extern uint16_t relay_1_endpoint_id;
 
-gpio_num_t RELAY = GPIO_NUM_10;
+constexpr size_t N_RELAYS = 2;
+
+constexpr gpio_num_t RELAY_GPIOS[N_RELAYS] = {GPIO_NUM_10, GPIO_NUM_11};
 
 /* Do any conversions/remapping for the actual value here */
 static esp_err_t app_driver_light_set_power(relay_handle_t handle, esp_matter_attr_val_t *val)
@@ -52,10 +55,22 @@ esp_err_t app_driver_attribute_update(app_driver_handle_t driver_handle, uint16_
 {
     esp_err_t err = ESP_OK;
     if (endpoint_id == relay_0_endpoint_id) {
-        relay_handle_t handle = (relay_handle_t)driver_handle;
+        // TODO: This if-tree (no switch due to cluster ids not being constexpr) could probably just be a map
         if (cluster_id == OnOff::Id) {
+            relay_handle_t relay = (relay_handle_t)driver_handle;
+            ESP_LOGI(TAG, "Relay 0");
             if (attribute_id == OnOff::Attributes::OnOff::Id) {
-                err = app_driver_light_set_power(handle, val);
+                err = app_driver_light_set_power(relay, val);
+            }
+        }
+    }
+    else if (endpoint_id == relay_1_endpoint_id) {
+        // TODO: This if-tree (no switch due to cluster ids not being constexpr) could probably just be a map
+        if (cluster_id == OnOff::Id) {
+            relay_handle_t relay = (relay_handle_t)driver_handle;
+            ESP_LOGI(TAG, "Relay 1");
+            if (attribute_id == OnOff::Attributes::OnOff::Id) {
+                err = app_driver_light_set_power(relay, val);
             }
         }
     }
@@ -66,27 +81,21 @@ esp_err_t app_driver_relay_set_defaults(uint16_t endpoint_id)
 {
     esp_err_t err = ESP_OK;
     void *priv_data = endpoint::get_priv_data(endpoint_id);
-    // TODO: Initialize private endpoint data with gpio ID?
-    relay_handle_t handle = (relay_handle_t)priv_data;
+    relay_handle_t relay = (relay_handle_t)priv_data;
     esp_matter_attr_val_t val = esp_matter_invalid(NULL);
 
     /* Setting power */
     attribute_t *attribute  = attribute::get(endpoint_id, OnOff::Id, OnOff::Attributes::OnOff::Id);
     attribute::get_val(attribute, &val);
-    err |= app_driver_light_set_power(handle, &val);
+    err |= app_driver_light_set_power(relay, &val);
 
     return err;
 }
 
-app_driver_handle_t app_driver_relays_init()
-{
+app_driver_handle_t app_driver_relay_init(const size_t i_gpio)
+{   
     /* Initialize relay */
-    relay_handle_t relay{relay_create(RELAY)};
-    if (relay == NULL)
-    {
-        return NULL;
-    }
-    return (app_driver_handle_t)relay;
+    return (app_driver_handle_t)relay_create(RELAY_GPIOS[i_gpio]);
 }
 
 app_driver_handle_t app_driver_button_init()
