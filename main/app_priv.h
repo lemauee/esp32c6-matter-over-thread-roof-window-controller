@@ -21,23 +21,16 @@
 
 typedef void *app_driver_handle_t;
 
-/** Initialize the light driver
+/** Initialize the relay driver
  *
- * This initializes the light driver associated with the selected board.
+ * This initializes the relay driver associated with the selected board.
  *
+ * @param[in] i_gpio Index of the relay to use (0 to 3).
+ * 
  * @return Handle on success.
  * @return NULL in case of failure.
  */
 app_driver_handle_t app_driver_relay_init(const size_t i_gpio);
-
-/** Initialize the button driver
- *
- * This initializes the button driver associated with the selected board.
- *
- * @return Handle on success.
- * @return NULL in case of failure.
- */
-app_driver_handle_t app_driver_button_init();
 
 /** Driver Update
  *
@@ -65,6 +58,26 @@ esp_err_t app_driver_attribute_update(app_driver_handle_t driver_handle, uint16_
  * @return error in case of failure.
  */
 esp_err_t app_driver_relay_set_defaults(uint16_t endpoint_id);
+
+/** Initialize the switch driver
+ *
+ * This initializes the switch driver associated with the selected board.
+ *
+ * @param[in] i_gpio Index of the switch input to use (0 to 3).
+ * 
+ * @return Handle on success.
+ * @return NULL in case of failure.
+ */
+app_driver_handle_t app_driver_switch_init(const size_t i_gpio);
+
+/** Initialize the reset button driver
+ *
+ * This initializes the reset button driver associated with the selected board.
+ *
+ * @return Handle on success.
+ * @return NULL in case of failure.
+ */
+app_driver_handle_t app_driver_reset_button_init();
 
 #if CHIP_DEVICE_CONFIG_ENABLE_THREAD
 #define ESP_OPENTHREAD_DEFAULT_RADIO_CONFIG()                                           \

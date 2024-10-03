@@ -28,6 +28,8 @@ static const char *TAG = "app_main";
 uint16_t relay_0_endpoint_id = 0;
 uint16_t relay_1_endpoint_id = 0;
 
+uint16_t switch_0_endpoint_id = 0;
+
 using namespace esp_matter;
 using namespace esp_matter::attribute;
 using namespace esp_matter::endpoint;
@@ -155,8 +157,11 @@ extern "C" void app_main()
     /* Initialize driver */
     app_driver_handle_t relay_0_handle = app_driver_relay_init(0);
     app_driver_handle_t relay_1_handle = app_driver_relay_init(1);
-    app_driver_handle_t button_handle = app_driver_button_init();
-    app_reset_button_register(button_handle);
+
+    app_driver_handle_t switch_0_handle = app_driver_switch_init(3);
+
+    app_driver_handle_t reset_button_handle = app_driver_reset_button_init();
+    app_reset_button_register(reset_button_handle);
 
     /* Create a Matter node and add the mandatory Root Node device type on endpoint 0 */
     node::config_t node_config;
@@ -181,6 +186,16 @@ extern "C" void app_main()
 
     relay_1_endpoint_id = endpoint::get_id(relay_1_endpoint);
     ESP_LOGI(TAG, "Plugin unit created with endpoint_id %d", relay_1_endpoint_id);
+
+    generic_switch::config_t switch_0_config;
+    endpoint_t *switch_0_endpoint = generic_switch::create(node, &switch_0_config, ENDPOINT_FLAG_NONE, switch_0_handle);
+    ABORT_APP_ON_FAILURE(switch_0_endpoint != nullptr, ESP_LOGE(TAG, "Failed to create generic switch endpoint 0"));
+
+    switch_0_endpoint_id = endpoint::get_id(switch_0_endpoint);
+    ESP_LOGI(TAG, "Switch created with endpoint_id %d", switch_0_endpoint_id);
+
+    cluster_t *switch_0_cluster = cluster::get(switch_0_endpoint, Switch::Id);
+    cluster::switch_cluster::feature::latching_switch::add(switch_0_cluster);
 
 #if CHIP_DEVICE_CONFIG_ENABLE_THREAD
     /* Set OpenThread platform config */
