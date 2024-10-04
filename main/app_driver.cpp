@@ -21,15 +21,12 @@ using namespace esp_matter;
 using namespace esp_matter::cluster;
 
 static const char *TAG = "app_driver";
-extern uint16_t relay_0_endpoint_id;
-extern uint16_t relay_1_endpoint_id;
 
-extern uint16_t switch_0_endpoint_id;
+extern uint16_t relay_endpoint_ids[N_RELAYS];
+extern uint16_t switch_endpoint_ids[N_SWITCHES];
 
-constexpr size_t N_RELAYS = 4;
 constexpr gpio_num_t RELAY_GPIOS[N_RELAYS] = {GPIO_NUM_10, GPIO_NUM_11, GPIO_NUM_22, GPIO_NUM_23};
-constexpr size_t N_GPIOS = 4;
-constexpr int32_t SWITCH_GPIOS[N_GPIOS] = {1, 2, 3, 15};
+constexpr int32_t SWITCH_GPIOS[N_SWITCHES] = {1, 2, 3, 15};
 
 static esp_err_t app_driver_relay_set_power(relay_handle_t handle, esp_matter_attr_val_t *val)
 {
@@ -42,7 +39,7 @@ static esp_err_t app_driver_relay_set_power(relay_handle_t handle, esp_matter_at
 static void app_driver_button_down_cb(void *arg, void *data)
 {
     ESP_LOGI(TAG, "Switch engaged");
-    uint16_t endpoint_id = switch_0_endpoint_id;
+    uint16_t endpoint_id = *(int32_t*)data;
 
     uint8_t newPosition = 1;
 
@@ -56,7 +53,7 @@ static void app_driver_button_down_cb(void *arg, void *data)
 static void app_driver_button_up_cb(void *arg, void *data)
 {
     ESP_LOGI(TAG, "Switch disengaged");
-    uint16_t endpoint_id = switch_0_endpoint_id;
+    uint16_t endpoint_id = *(int32_t*)data;
 
     uint8_t newPosition = 0;
 
@@ -71,23 +68,14 @@ esp_err_t app_driver_attribute_update(app_driver_handle_t driver_handle, uint16_
                                       uint32_t attribute_id, esp_matter_attr_val_t *val)
 {
     esp_err_t err = ESP_OK;
-    if (endpoint_id == relay_0_endpoint_id) {
-        // TODO: This if-tree (no switch due to cluster ids not being constexpr) could probably just be a map
-        if (cluster_id == OnOff::Id) {
-            relay_handle_t relay = (relay_handle_t)driver_handle;
-            ESP_LOGI(TAG, "Relay 0");
-            if (attribute_id == OnOff::Attributes::OnOff::Id) {
-                err = app_driver_relay_set_power(relay, val);
-            }
-        }
-    }
-    else if (endpoint_id == relay_1_endpoint_id) {
-        // TODO: This if-tree (no switch due to cluster ids not being constexpr) could probably just be a map
-        if (cluster_id == OnOff::Id) {
-            relay_handle_t relay = (relay_handle_t)driver_handle;
-            ESP_LOGI(TAG, "Relay 1");
-            if (attribute_id == OnOff::Attributes::OnOff::Id) {
-                err = app_driver_relay_set_power(relay, val);
+    for (size_t i{0}; i < N_RELAYS; i++){
+        if (endpoint_id == relay_endpoint_ids[i]) {
+            if (cluster_id == OnOff::Id) {
+                relay_handle_t relay = (relay_handle_t)driver_handle;
+                ESP_LOGI(TAG, "Relay %zu", i);
+                if (attribute_id == OnOff::Attributes::OnOff::Id) {
+                    err = app_driver_relay_set_power(relay, val);
+                }
             }
         }
     }
@@ -127,8 +115,8 @@ app_driver_handle_t app_driver_switch_init(const size_t i_gpio)
     if (button_handle == NULL){
         return NULL;
     }
-    ESP_ERROR_CHECK(iot_button_register_cb(button_handle, BUTTON_PRESS_DOWN, app_driver_button_down_cb, NULL));
-    ESP_ERROR_CHECK(iot_button_register_cb(button_handle, BUTTON_PRESS_UP, app_driver_button_up_cb, NULL));
+    ESP_ERROR_CHECK(iot_button_register_cb(button_handle, BUTTON_PRESS_DOWN, app_driver_button_down_cb, &switch_endpoint_ids[i_gpio]));
+    ESP_ERROR_CHECK(iot_button_register_cb(button_handle, BUTTON_PRESS_UP, app_driver_button_up_cb, &switch_endpoint_ids[i_gpio]));
 
     return (app_driver_handle_t)button_handle;
 }

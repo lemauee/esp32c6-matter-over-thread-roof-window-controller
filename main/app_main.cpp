@@ -25,10 +25,8 @@
 #include <app/server/Server.h>
 
 static const char *TAG = "app_main";
-uint16_t relay_0_endpoint_id = 0;
-uint16_t relay_1_endpoint_id = 0;
-
-uint16_t switch_0_endpoint_id = 0;
+uint16_t relay_endpoint_ids[N_RELAYS] = {0, 0, 0, 0};
+uint16_t switch_endpoint_ids[N_SWITCHES] = {0, 0, 0, 0};
 
 using namespace esp_matter;
 using namespace esp_matter::attribute;
@@ -155,47 +153,45 @@ extern "C" void app_main()
     nvs_flash_init();
 
     /* Initialize driver */
-    app_driver_handle_t relay_0_handle = app_driver_relay_init(0);
-    app_driver_handle_t relay_1_handle = app_driver_relay_init(1);
-
-    app_driver_handle_t switch_0_handle = app_driver_switch_init(3);
+    app_driver_handle_t relay_handles[N_RELAYS];
+    for (size_t i{0}; i < N_RELAYS; i++){
+        relay_handles[i] = app_driver_relay_init(i);
+    }
+    app_driver_handle_t switch_handles[N_SWITCHES];
+    for (size_t i{0}; i < N_SWITCHES; i++){
+        switch_handles[i] = app_driver_switch_init(i);
+    }
 
     app_driver_handle_t reset_button_handle = app_driver_reset_button_init();
     app_reset_button_register(reset_button_handle);
 
-    /* Create a Matter node and add the mandatory Root Node device type on endpoint 0 */
+    /* Create a Matter node*/
     node::config_t node_config;
 
-    // node handle can be used to add/modify other endpoints.
     node_t *node = node::create(&node_config, app_attribute_update_cb, app_identification_cb);
     ABORT_APP_ON_FAILURE(node != nullptr, ESP_LOGE(TAG, "Failed to create Matter node"));
 
-    // endpoint handles can be used to add/modify clusters.
-    on_off_plugin_unit::config_t relay_0_config{};
-    relay_0_config.on_off.on_off = false;
-    endpoint_t *relay_0_endpoint = on_off_plugin_unit::create(node, &relay_0_config, ENDPOINT_FLAG_NONE, relay_0_handle);
-    ABORT_APP_ON_FAILURE(relay_0_endpoint != nullptr, ESP_LOGE(TAG, "Failed to create on off plugin unit endpoint 0"));
+    for (size_t i{0}; i < N_RELAYS; i++){
+        on_off_plugin_unit::config_t relay_config{};
+        relay_config.on_off.on_off = false;
+        endpoint_t *relay_endpoint = on_off_plugin_unit::create(node, &relay_config, ENDPOINT_FLAG_NONE, relay_handles[i]);
+        ABORT_APP_ON_FAILURE(relay_endpoint != nullptr, ESP_LOGE(TAG, "Failed to create on off plugin unit endpoint"));
 
-    relay_0_endpoint_id = endpoint::get_id(relay_0_endpoint);
-    ESP_LOGI(TAG, "Plugin unit created with endpoint_id %d", relay_0_endpoint_id);
+        relay_endpoint_ids[i] = endpoint::get_id(relay_endpoint);
+        ESP_LOGI(TAG, "Plugin unit created with endpoint_id %d", relay_endpoint_ids[i]);
+    }
 
-    on_off_plugin_unit::config_t relay_1_config{};
-    relay_1_config.on_off.on_off = false;
-    endpoint_t *relay_1_endpoint = on_off_plugin_unit::create(node, &relay_1_config, ENDPOINT_FLAG_NONE, relay_1_handle);
-    ABORT_APP_ON_FAILURE(relay_1_endpoint != nullptr, ESP_LOGE(TAG, "Failed to create on off plugin unit endpoint 1"));
+    for (size_t i{0}; i < N_RELAYS; i++){
+        generic_switch::config_t switch_config;
+        endpoint_t *switch_endpoint = generic_switch::create(node, &switch_config, ENDPOINT_FLAG_NONE, switch_handles[i]);
+        ABORT_APP_ON_FAILURE(switch_endpoint != nullptr, ESP_LOGE(TAG, "Failed to create generic switch endpoint"));
 
-    relay_1_endpoint_id = endpoint::get_id(relay_1_endpoint);
-    ESP_LOGI(TAG, "Plugin unit created with endpoint_id %d", relay_1_endpoint_id);
+        switch_endpoint_ids[i] = endpoint::get_id(switch_endpoint);
+        ESP_LOGI(TAG, "Switch created with endpoint_id %d", switch_endpoint_ids[i]);
 
-    generic_switch::config_t switch_0_config;
-    endpoint_t *switch_0_endpoint = generic_switch::create(node, &switch_0_config, ENDPOINT_FLAG_NONE, switch_0_handle);
-    ABORT_APP_ON_FAILURE(switch_0_endpoint != nullptr, ESP_LOGE(TAG, "Failed to create generic switch endpoint 0"));
-
-    switch_0_endpoint_id = endpoint::get_id(switch_0_endpoint);
-    ESP_LOGI(TAG, "Switch created with endpoint_id %d", switch_0_endpoint_id);
-
-    cluster_t *switch_0_cluster = cluster::get(switch_0_endpoint, Switch::Id);
-    cluster::switch_cluster::feature::latching_switch::add(switch_0_cluster);
+        cluster_t *switch_cluster = cluster::get(switch_endpoint, Switch::Id);
+        cluster::switch_cluster::feature::latching_switch::add(switch_cluster);
+    }
 
 #if CHIP_DEVICE_CONFIG_ENABLE_THREAD
     /* Set OpenThread platform config */
@@ -212,8 +208,9 @@ extern "C" void app_main()
     ABORT_APP_ON_FAILURE(err == ESP_OK, ESP_LOGE(TAG, "Failed to start Matter, err:%d", err));
 
     /* Starting driver with default values */
-    app_driver_relay_set_defaults(relay_0_endpoint_id);
-    app_driver_relay_set_defaults(relay_1_endpoint_id);
+    for (size_t i{0}; i < N_RELAYS; i++){
+        app_driver_relay_set_defaults(relay_endpoint_ids[i]);
+    }
 
 #if CONFIG_ENABLE_ENCRYPTED_OTA
     err = esp_matter_ota_requestor_encrypted_init(s_decryption_key, s_decryption_key_len);

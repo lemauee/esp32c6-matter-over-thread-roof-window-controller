@@ -19,6 +19,9 @@
 /** Default attribute values used during initialization */
 #define DEFAULT_POWER true
 
+constexpr size_t N_RELAYS = 4;
+constexpr size_t N_SWITCHES = 4;
+
 typedef void *app_driver_handle_t;
 
 /** Initialize the relay driver
