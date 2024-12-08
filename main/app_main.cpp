@@ -16,6 +16,7 @@
 
 #include <common_macros.h>
 #include <app_priv.h>
+#include <am2301_driver.h>
 #include <app_reset.h>
 #if CHIP_DEVICE_CONFIG_ENABLE_THREAD
 #include <platform/ESP32/OpenthreadLauncher.h>
@@ -42,6 +43,44 @@ extern const char decryption_key_end[] asm("_binary_esp_image_encryption_key_pem
 static const char *s_decryption_key = decryption_key_start;
 static const uint16_t s_decryption_key_len = decryption_key_end - decryption_key_start;
 #endif // CONFIG_ENABLE_ENCRYPTED_OTA
+
+// Application cluster specification, 7.18.2.11. Temperature
+// represents a temperature on the Celsius scale with a resolution of 0.01°C.
+// temp = (temperature in °C) x 100
+static void temp_sensor_notification(uint16_t endpoint_id, float temp, void *user_data)
+{
+    // schedule the attribute update so that we can report it from matter thread
+    chip::DeviceLayer::SystemLayer().ScheduleLambda([endpoint_id, temp]() {
+        attribute_t * attribute = attribute::get(endpoint_id,
+                                                 TemperatureMeasurement::Id,
+                                                 TemperatureMeasurement::Attributes::MeasuredValue::Id);
+
+        esp_matter_attr_val_t val = esp_matter_invalid(NULL);
+        attribute::get_val(attribute, &val);
+        val.val.i16 = static_cast<int16_t>(temp * 100);
+
+        attribute::update(endpoint_id, TemperatureMeasurement::Id, TemperatureMeasurement::Attributes::MeasuredValue::Id, &val);
+    });
+}
+
+// Application cluster specification, 2.6.4.1. MeasuredValue Attribute
+// represents the humidity in percent.
+// humidity = (humidity in %) x 100
+static void humidity_sensor_notification(uint16_t endpoint_id, float humidity, void *user_data)
+{
+    // schedule the attribute update so that we can report it from matter thread
+    chip::DeviceLayer::SystemLayer().ScheduleLambda([endpoint_id, humidity]() {
+        attribute_t * attribute = attribute::get(endpoint_id,
+                                                 RelativeHumidityMeasurement::Id,
+                                                 RelativeHumidityMeasurement::Attributes::MeasuredValue::Id);
+
+        esp_matter_attr_val_t val = esp_matter_invalid(NULL);
+        attribute::get_val(attribute, &val);
+        val.val.u16 = static_cast<uint16_t>(humidity * 100);
+
+        attribute::update(endpoint_id, RelativeHumidityMeasurement::Id, RelativeHumidityMeasurement::Attributes::MeasuredValue::Id, &val);
+    });
+}
 
 static void app_event_cb(const ChipDeviceEvent *event, intptr_t arg)
 {
@@ -192,6 +231,30 @@ extern "C" void app_main()
         cluster_t *switch_cluster = cluster::get(switch_endpoint, Switch::Id);
         cluster::switch_cluster::feature::latching_switch::add(switch_cluster);
     }
+
+    // add temperature sensor device
+    temperature_sensor::config_t temp_sensor_config;
+    endpoint_t * temp_sensor_ep = temperature_sensor::create(node, &temp_sensor_config, ENDPOINT_FLAG_NONE, NULL);
+    ABORT_APP_ON_FAILURE(temp_sensor_ep != nullptr, ESP_LOGE(TAG, "Failed to create temperature_sensor endpoint"));
+
+    // add the humidity sensor device
+    humidity_sensor::config_t humidity_sensor_config;
+    endpoint_t * humidity_sensor_ep = humidity_sensor::create(node, &humidity_sensor_config, ENDPOINT_FLAG_NONE, NULL);
+    ABORT_APP_ON_FAILURE(humidity_sensor_ep != nullptr, ESP_LOGE(TAG, "Failed to create humidity_sensor endpoint"));
+
+    // initialize temperature and humidity sensor driver (shtc3)
+    static am2301_sensor_config_t shtc3_config = {
+        .temperature = {
+            .cb = temp_sensor_notification,
+            .endpoint_id = endpoint::get_id(temp_sensor_ep),
+        },
+        .humidity = {
+            .cb = humidity_sensor_notification,
+            .endpoint_id = endpoint::get_id(humidity_sensor_ep),
+        },
+    };
+    err = am2301_sensor_init(&shtc3_config);
+    ABORT_APP_ON_FAILURE(err == ESP_OK, ESP_LOGE(TAG, "Failed to initialize temperature sensor driver"));
 
 #if CHIP_DEVICE_CONFIG_ENABLE_THREAD
     /* Set OpenThread platform config */

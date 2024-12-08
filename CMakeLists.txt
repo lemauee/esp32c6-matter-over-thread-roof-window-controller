@@ -20,6 +20,7 @@ set(EXTRA_COMPONENT_DIRS
     "${ESP_MATTER_PATH}/examples/common"
     "${MATTER_SDK_PATH}/config/esp32/components"
     "${ESP_MATTER_PATH}/components"
+    "/home/leopold/esp/esp-idf-lib/components"
     ${extra_components_dirs_append})
 
 project(light)
