@@ -6,14 +6,14 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
+#include "am2301_driver.h"
+
 #include <esp_err.h>
 #include <esp_log.h>
 #include <esp_timer.h>
 #include <esp_random.h>
 
-#include <am2301_driver.h>
-
-#include <dht.h>
+#include "dht.h"
 
 static const char * TAG = "shtc3";
 

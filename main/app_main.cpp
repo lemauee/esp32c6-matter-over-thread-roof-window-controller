@@ -15,8 +15,25 @@
 #include <esp_matter_ota.h>
 
 #include <common_macros.h>
-#include <app_priv.h>
-#include <am2301_driver.h>
+#if CHIP_DEVICE_CONFIG_ENABLE_THREAD
+#include "esp_openthread_types.h"
+#endif
+#if CHIP_DEVICE_CONFIG_ENABLE_THREAD
+#define ESP_OPENTHREAD_DEFAULT_RADIO_CONFIG()                                           \
+    {                                                                                   \
+        .radio_mode = RADIO_MODE_NATIVE,                                                \
+    }
+
+#define ESP_OPENTHREAD_DEFAULT_HOST_CONFIG()                                            \
+    {                                                                                   \
+        .host_connection_mode = HOST_CONNECTION_MODE_NONE,                              \
+    }
+
+#define ESP_OPENTHREAD_DEFAULT_PORT_CONFIG()                                            \
+    {                                                                                   \
+        .storage_partition_name = "nvs", .netif_queue_size = 10, .task_queue_size = 10, \
+    }
+#endif
 #include <app_reset.h>
 #if CHIP_DEVICE_CONFIG_ENABLE_THREAD
 #include <platform/ESP32/OpenthreadLauncher.h>
@@ -24,6 +41,11 @@
 
 #include <app/server/CommissioningWindowManager.h>
 #include <app/server/Server.h>
+
+#include "am2301/am2301_driver.h"
+#include "relay/relay_driver.h"
+#include "switch/switch_driver.h"
+#include "reset_button/reset_button_driver.h"
 
 static const char *TAG = "app_main";
 uint16_t relay_endpoint_ids[N_RELAYS] = {0, 0, 0, 0};
@@ -177,7 +199,7 @@ static esp_err_t app_attribute_update_cb(attribute::callback_type_t type, uint16
 
     if (type == PRE_UPDATE) {
         /* Driver update */
-        app_driver_handle_t driver_handle = (app_driver_handle_t)priv_data;
+        relay_driver_handle_t driver_handle = (relay_driver_handle_t)priv_data;
         err = app_driver_attribute_update(driver_handle, endpoint_id, cluster_id, attribute_id, val);
     }
 
@@ -192,16 +214,16 @@ extern "C" void app_main()
     nvs_flash_init();
 
     /* Initialize driver */
-    app_driver_handle_t relay_handles[N_RELAYS];
+    relay_driver_handle_t relay_handles[N_RELAYS];
     for (size_t i{0}; i < N_RELAYS; i++){
         relay_handles[i] = app_driver_relay_init(i);
     }
-    app_driver_handle_t switch_handles[N_SWITCHES];
+    switch_driver_handle_t switch_handles[N_SWITCHES];
     for (size_t i{0}; i < N_SWITCHES; i++){
         switch_handles[i] = app_driver_switch_init(i);
     }
 
-    app_driver_handle_t reset_button_handle = app_driver_reset_button_init();
+    reset_button_driver_handle_t reset_button_handle = app_driver_reset_button_init();
     app_reset_button_register(reset_button_handle);
 
     /* Create a Matter node*/
