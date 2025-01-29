@@ -1,4 +1,5 @@
 dependencies:
+  espressif/esp_diag_data_store: "==1.0.1"
   espressif/cmake_utilities:
     version: 0.*
     rules: # will add "optional_component" only when all if clauses are True
