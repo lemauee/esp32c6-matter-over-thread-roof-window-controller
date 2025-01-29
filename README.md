@@ -51,3 +51,23 @@ Enable the open thread web port in the open thread border router addon. Navigate
 4. Plug in your board and erase flash: `idf.py erase_flash`
 5. Flash & monitor console: `idf.py flash monitor`
 
+## Debugging
+
+Refer to https://docs.espressif.com/projects/esp-idf/en/stable/esp32c6/api-guides/jtag-debugging/index.html.
+
+At least with my current version of openocd/gdb, setting the flash size to 4MB (SDK configuration - Serial flasher config → Flash size) is necessary. For reference, see https://github.com/espressif/openocd-esp32/issues/315#issuecomment-1956404126.
+
+
+### TODO
+→ Component config → ESP System Settings → Memory protection
+
+openocd -f board/esp32c6-builtin.cfg
+riscv32-esp-elf-gdb -x gdbinit build/blink.elf
+
+openocd -f board/esp32c6-builtin.cfg -c init -c "reset halt"
+riscv32-esp-elf-gdb -x gdbinit build/light.elf
+
+openocd -f board/esp32c6-builtin.cfg -c "gdb_memory_map disable" -c init -c "reset halt"
+
+For VSCode, refer to https://github.com/espressif/vscode-esp-idf-extension/blob/master/docs/DEBUGGING.md .
+
