@@ -16,8 +16,12 @@ reset_button_driver_handle_t app_driver_reset_button_init()
 {
     /* Onboard button to be used for factory reset in app_main */
 
-    button_handle_t btns[BSP_BUTTON_NUM];
-    ESP_ERROR_CHECK(bsp_iot_button_create(btns, NULL, BSP_BUTTON_NUM));
+    button_config_t btn_cfg;
+    btn_cfg.type = BUTTON_TYPE_GPIO;
+    btn_cfg.gpio_button_config.gpio_num = 9;
+    btn_cfg.gpio_button_config.active_level = 0;
+
+    button_handle_t btn = iot_button_create(&btn_cfg);
     
-    return (reset_button_driver_handle_t)btns[0];
+    return (reset_button_driver_handle_t)btn;
 }

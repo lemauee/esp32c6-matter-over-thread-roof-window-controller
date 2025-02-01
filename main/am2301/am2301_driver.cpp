@@ -40,7 +40,7 @@ static void timer_cb_internal(void *arg)
     }
 
     float temp, humidity;
-    esp_err_t err = dht_read_float_data(DHT_TYPE_AM2301, GPIO_NUM_9,
+    esp_err_t err = dht_read_float_data(DHT_TYPE_AM2301, GPIO_NUM_0,
         &humidity, &temp);
     if (err != ESP_OK) {
         return;
