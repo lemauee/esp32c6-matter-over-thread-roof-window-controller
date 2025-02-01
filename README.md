@@ -1,6 +1,6 @@
 # ESP32 C6 Matter Over Thread Roof Window Controller
 
-Smart home matter over thread roof window controller based on an Espressif ESP32 C6 EVB from Olimex. I use this via a Home Assistant ZBT-1 / Skyconnect running as Thread boarder router. Still under development, but might be helpful for others starting out on building custom Matter over Thread devices.
+Smart home matter over thread roof window controller based on an Espressif ESP32 C6 EVB from Olimex. I use this via a Home Assistant ZBT-1 / Skyconnect running as Thread boarder router. Uses an AM2301 (Similar to DHT11/DHT21) temperature/humidity sensor.
 
 ## Setup
 
@@ -51,23 +51,7 @@ Enable the open thread web port in the open thread border router addon. Navigate
 4. Plug in your board and erase flash: `idf.py erase_flash`
 5. Flash & monitor console: `idf.py flash monitor`
 
-## Debugging
+## TODO
 
-Refer to https://docs.espressif.com/projects/esp-idf/en/stable/esp32c6/api-guides/jtag-debugging/index.html.
-
-At least with my current version of openocd/gdb, setting the flash size to 4MB (SDK configuration - Serial flasher config → Flash size) is necessary. For reference, see https://github.com/espressif/openocd-esp32/issues/315#issuecomment-1956404126.
-
-
-### TODO
-→ Component config → ESP System Settings → Memory protection
-
-openocd -f board/esp32c6-builtin.cfg
-riscv32-esp-elf-gdb -x gdbinit build/blink.elf
-
-openocd -f board/esp32c6-builtin.cfg -c init -c "reset halt"
-riscv32-esp-elf-gdb -x gdbinit build/light.elf
-
-openocd -f board/esp32c6-builtin.cfg -c "gdb_memory_map disable" -c init -c "reset halt"
-
-For VSCode, refer to https://github.com/espressif/vscode-esp-idf-extension/blob/master/docs/DEBUGGING.md .
+[ ] Fix reset button to get into "pairing mode" again.
 
