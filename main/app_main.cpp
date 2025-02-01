@@ -15,7 +15,25 @@
 #include <esp_matter_ota.h>
 
 #include <common_macros.h>
-#include <app_priv.h>
+#if CHIP_DEVICE_CONFIG_ENABLE_THREAD
+#include "esp_openthread_types.h"
+#endif
+#if CHIP_DEVICE_CONFIG_ENABLE_THREAD
+#define ESP_OPENTHREAD_DEFAULT_RADIO_CONFIG()                                           \
+    {                                                                                   \
+        .radio_mode = RADIO_MODE_NATIVE,                                                \
+    }
+
+#define ESP_OPENTHREAD_DEFAULT_HOST_CONFIG()                                            \
+    {                                                                                   \
+        .host_connection_mode = HOST_CONNECTION_MODE_NONE,                              \
+    }
+
+#define ESP_OPENTHREAD_DEFAULT_PORT_CONFIG()                                            \
+    {                                                                                   \
+        .storage_partition_name = "nvs", .netif_queue_size = 10, .task_queue_size = 10, \
+    }
+#endif
 #include <app_reset.h>
 #if CHIP_DEVICE_CONFIG_ENABLE_THREAD
 #include <platform/ESP32/OpenthreadLauncher.h>
@@ -23,6 +41,12 @@
 
 #include <app/server/CommissioningWindowManager.h>
 #include <app/server/Server.h>
+
+#include "am2301/am2301_driver.h"
+#include "relay/relay_driver.h"
+#include "switch/switch_driver.h"
+#include "reset_button/reset_button_driver.h"
+#include "user_led/user_led.h"
 
 static const char *TAG = "app_main";
 uint16_t relay_endpoint_ids[N_RELAYS] = {0, 0, 0, 0};
@@ -42,6 +66,44 @@ extern const char decryption_key_end[] asm("_binary_esp_image_encryption_key_pem
 static const char *s_decryption_key = decryption_key_start;
 static const uint16_t s_decryption_key_len = decryption_key_end - decryption_key_start;
 #endif // CONFIG_ENABLE_ENCRYPTED_OTA
+
+// Application cluster specification, 7.18.2.11. Temperature
+// represents a temperature on the Celsius scale with a resolution of 0.01°C.
+// temp = (temperature in °C) x 100
+static void temp_sensor_notification(uint16_t endpoint_id, float temp, void *user_data)
+{
+    // schedule the attribute update so that we can report it from matter thread
+    chip::DeviceLayer::SystemLayer().ScheduleLambda([endpoint_id, temp]() {
+        attribute_t * attribute = attribute::get(endpoint_id,
+                                                 TemperatureMeasurement::Id,
+                                                 TemperatureMeasurement::Attributes::MeasuredValue::Id);
+
+        esp_matter_attr_val_t val = esp_matter_invalid(NULL);
+        attribute::get_val(attribute, &val);
+        val.val.i16 = static_cast<int16_t>(temp * 100);
+
+        attribute::update(endpoint_id, TemperatureMeasurement::Id, TemperatureMeasurement::Attributes::MeasuredValue::Id, &val);
+    });
+}
+
+// Application cluster specification, 2.6.4.1. MeasuredValue Attribute
+// represents the humidity in percent.
+// humidity = (humidity in %) x 100
+static void humidity_sensor_notification(uint16_t endpoint_id, float humidity, void *user_data)
+{
+    // schedule the attribute update so that we can report it from matter thread
+    chip::DeviceLayer::SystemLayer().ScheduleLambda([endpoint_id, humidity]() {
+        attribute_t * attribute = attribute::get(endpoint_id,
+                                                 RelativeHumidityMeasurement::Id,
+                                                 RelativeHumidityMeasurement::Attributes::MeasuredValue::Id);
+
+        esp_matter_attr_val_t val = esp_matter_invalid(NULL);
+        attribute::get_val(attribute, &val);
+        val.val.u16 = static_cast<uint16_t>(humidity * 100);
+
+        attribute::update(endpoint_id, RelativeHumidityMeasurement::Id, RelativeHumidityMeasurement::Attributes::MeasuredValue::Id, &val);
+    });
+}
 
 static void app_event_cb(const ChipDeviceEvent *event, intptr_t arg)
 {
@@ -124,7 +186,7 @@ static esp_err_t app_identification_cb(identification::callback_type_t type, uin
                                        uint8_t effect_variant, void *priv_data)
 {
     ESP_LOGI(TAG, "Identification callback: type: %u, effect: %u, variant: %u", type, effect_id, effect_variant);
-    // TODO: Implement driver function flashing the user led in a specific pattern.
+    user_led_flash_n(500, 3);
     return ESP_OK;
 }
 
@@ -138,7 +200,7 @@ static esp_err_t app_attribute_update_cb(attribute::callback_type_t type, uint16
 
     if (type == PRE_UPDATE) {
         /* Driver update */
-        app_driver_handle_t driver_handle = (app_driver_handle_t)priv_data;
+        relay_driver_handle_t driver_handle = (relay_driver_handle_t)priv_data;
         err = app_driver_attribute_update(driver_handle, endpoint_id, cluster_id, attribute_id, val);
     }
 
@@ -153,17 +215,19 @@ extern "C" void app_main()
     nvs_flash_init();
 
     /* Initialize driver */
-    app_driver_handle_t relay_handles[N_RELAYS];
+    relay_driver_handle_t relay_handles[N_RELAYS];
     for (size_t i{0}; i < N_RELAYS; i++){
         relay_handles[i] = app_driver_relay_init(i);
     }
-    app_driver_handle_t switch_handles[N_SWITCHES];
+    switch_driver_handle_t switch_handles[N_SWITCHES];
     for (size_t i{0}; i < N_SWITCHES; i++){
         switch_handles[i] = app_driver_switch_init(i);
     }
 
-    app_driver_handle_t reset_button_handle = app_driver_reset_button_init();
+    reset_button_driver_handle_t reset_button_handle = app_driver_reset_button_init();
     app_reset_button_register(reset_button_handle);
+
+    user_led_gpio_init();
 
     /* Create a Matter node*/
     node::config_t node_config;
@@ -192,6 +256,30 @@ extern "C" void app_main()
         cluster_t *switch_cluster = cluster::get(switch_endpoint, Switch::Id);
         cluster::switch_cluster::feature::latching_switch::add(switch_cluster);
     }
+
+    // add temperature sensor device
+    temperature_sensor::config_t temp_sensor_config;
+    endpoint_t * temp_sensor_ep = temperature_sensor::create(node, &temp_sensor_config, ENDPOINT_FLAG_NONE, NULL);
+    ABORT_APP_ON_FAILURE(temp_sensor_ep != nullptr, ESP_LOGE(TAG, "Failed to create temperature_sensor endpoint"));
+
+    // add the humidity sensor device
+    humidity_sensor::config_t humidity_sensor_config;
+    endpoint_t * humidity_sensor_ep = humidity_sensor::create(node, &humidity_sensor_config, ENDPOINT_FLAG_NONE, NULL);
+    ABORT_APP_ON_FAILURE(humidity_sensor_ep != nullptr, ESP_LOGE(TAG, "Failed to create humidity_sensor endpoint"));
+
+    // initialize temperature and humidity sensor driver (shtc3)
+    static am2301_sensor_config_t shtc3_config = {
+        .temperature = {
+            .cb = temp_sensor_notification,
+            .endpoint_id = endpoint::get_id(temp_sensor_ep),
+        },
+        .humidity = {
+            .cb = humidity_sensor_notification,
+            .endpoint_id = endpoint::get_id(humidity_sensor_ep),
+        },
+    };
+    err = am2301_sensor_init(&shtc3_config);
+    ABORT_APP_ON_FAILURE(err == ESP_OK, ESP_LOGE(TAG, "Failed to initialize temperature sensor driver"));
 
 #if CHIP_DEVICE_CONFIG_ENABLE_THREAD
     /* Set OpenThread platform config */

@@ -1,6 +1,6 @@
 # ESP32 C6 Matter Over Thread Roof Window Controller
 
-Smart home matter over thread roof window controller based on an Espressif ESP32 C6 EVB from Olimex. I use this via a Home Assistant ZBT-1 / Skyconnect running as Thread boarder router. Still under development, but might be helpful for others starting out on building custom Matter over Thread devices.
+Smart home matter over thread roof window controller based on an Espressif ESP32 C6 EVB from Olimex. I use this via a Home Assistant ZBT-1 / Skyconnect running as Thread boarder router. Uses an AM2301 (Similar to DHT11/DHT21) temperature/humidity sensor.
 
 ## Setup
 
