@@ -51,7 +51,3 @@ Enable the open thread web port in the open thread border router addon. Navigate
 4. Plug in your board and erase flash: `idf.py erase_flash`
 5. Flash & monitor console: `idf.py flash monitor`
 
-## TODO
-
-[ ] Fix reset button to get into "pairing mode" again.
-

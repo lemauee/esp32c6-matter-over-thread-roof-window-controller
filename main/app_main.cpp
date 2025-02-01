@@ -46,6 +46,7 @@
 #include "relay/relay_driver.h"
 #include "switch/switch_driver.h"
 #include "reset_button/reset_button_driver.h"
+#include "user_led/user_led.h"
 
 static const char *TAG = "app_main";
 uint16_t relay_endpoint_ids[N_RELAYS] = {0, 0, 0, 0};
@@ -185,7 +186,7 @@ static esp_err_t app_identification_cb(identification::callback_type_t type, uin
                                        uint8_t effect_variant, void *priv_data)
 {
     ESP_LOGI(TAG, "Identification callback: type: %u, effect: %u, variant: %u", type, effect_id, effect_variant);
-    // TODO: Implement driver function flashing the user led in a specific pattern.
+    user_led_flash_n(500, 3);
     return ESP_OK;
 }
 
@@ -225,6 +226,8 @@ extern "C" void app_main()
 
     reset_button_driver_handle_t reset_button_handle = app_driver_reset_button_init();
     app_reset_button_register(reset_button_handle);
+
+    user_led_gpio_init();
 
     /* Create a Matter node*/
     node::config_t node_config;
